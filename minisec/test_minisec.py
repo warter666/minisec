@@ -58,6 +58,29 @@ def test_scan_closed_port_reports_nothing():
     assert scan(["127.0.0.1"], str(closed), timeout=0.5) == []
 
 
+def test_scan_prefers_ipv4_when_dual_stack():
+    """A host that resolves ::1 first must still be scanned via its A record
+    (regression: getaddrinfo order made 'localhost' fail with an IPv6 error)."""
+    from minisec import portscan
+
+    def fake_getaddrinfo(host, *args, **kwargs):
+        # ::1 listed first, 127.0.0.1 second — the order that broke scan()
+        return [(socket.AF_INET6, socket.SOCK_STREAM, 6, "", ("::1", 0)),
+                (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("127.0.0.1", 0))]
+
+    orig = portscan.socket.getaddrinfo
+    portscan.socket.getaddrinfo = fake_getaddrinfo
+    try:
+        # closed port -> empty result, but crucially no IPv6 rejection
+        s = socket.socket()
+        s.bind(("127.0.0.1", 0))
+        closed = s.getsockname()[1]
+        s.close()
+        assert scan(["dualstack.example"], str(closed)) == []
+    finally:
+        portscan.socket.getaddrinfo = orig
+
+
 def test_scan_rejects_public_target():
     # a real public unicast address (example.com); the guard must reject it
     # BEFORE any packet is sent, so this never actually contacts the host
@@ -112,6 +135,8 @@ if __name__ == "__main__":
     print("local listener scan passed")
     test_scan_closed_port_reports_nothing()
     print("closed-port non-report passed")
+    test_scan_prefers_ipv4_when_dual_stack()
+    print("dual-stack IPv4 preference passed")
     test_scan_rejects_public_target()
     print("private-target guard passed")
     test_fuzzer_finds_crash()

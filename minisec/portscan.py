@@ -11,16 +11,25 @@ import socket
 DEFAULT_TIMEOUT = 1.0
 
 
-def _check_target_allowed(target: str, allow_external: bool):
-    """Resolve and require loopback/private unless the caller opts out."""
+def _check_target_allowed(addr: str, allow_external: bool):
+    """Require a loopback/private address unless the caller opts out."""
+    ip = ipaddress.ip_address(addr)
+    if not (allow_external or ip.is_private or ip.is_loopback):
+        raise ValueError(
+            f"{addr} is a public address; pass allow_external=True "
+            "only if you are authorized to test it")
+
+
+def _resolve_ipv4(target: str) -> str:
+    """First IPv4 (A) record for a host — getaddrinfo often yields ::1 first
+    for dual-stack names like 'localhost', which this toy scanner cannot use
+    (see issue #1)."""
     infos = socket.getaddrinfo(target, None, proto=socket.IPPROTO_TCP)
     for info in infos:
-        ip = ipaddress.ip_address(info[4][0])
-        if allow_external or ip.is_private or ip.is_loopback:
-            return
-    raise ValueError(
-        f"{target} resolves to a public address; pass allow_external=True "
-        "only if you are authorized to test it")
+        addr = info[4][0]
+        if isinstance(ipaddress.ip_address(addr), ipaddress.IPv4Address):
+            return addr
+    raise ValueError(f"{target} has no IPv4 address; this scanner is IPv4-only")
 
 
 def parse_ports(spec: str) -> list:
@@ -60,11 +69,9 @@ def scan(targets, ports, timeout=DEFAULT_TIMEOUT, banner=False,
         ports = parse_ports(ports)
     hosts = []
     for t in targets:
-        _check_target_allowed(t, allow_external)
-        infos = socket.getaddrinfo(t, None, proto=socket.IPPROTO_TCP)
-        addr = infos[0][4][0]
-        if isinstance(ipaddress.ip_address(addr), ipaddress.IPv6Address):
-            raise ValueError("IPv6 targets not supported by this toy scanner")
+        addr = _resolve_ipv4(t)
+        # guard the exact address we are about to connect to
+        _check_target_allowed(addr, allow_external)
         hosts.append(addr)
 
     results = []
