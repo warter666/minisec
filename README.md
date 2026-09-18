@@ -4,6 +4,16 @@
 [sec-tools/litefuzz](https://github.com/sec-tools/litefuzz) 的核心思路，
 纯标准库实现，仅用于授权测试与学习。
 
+## 命令行用法
+```bash
+# 扫描（默认仅限环回/私网目标，公网需 --allow-external 且仅限授权场景）
+python -m minisec.cli scan --host 127.0.0.1 --ports 1-1024 --banner
+
+# 模糊测试（对以 stdin 为输入的命令行目标做变异，崩溃样本去重落盘）
+python -m minisec.cli fuzz --target ./parser --seed seed.bin \
+    --iters 5000 --token CRASHTOKEN --seed-rng 7
+```
+
 ## portscan.py — TCP connect 扫描器
 - 线程池并发（默认 256）+ `connect_ex` + 超时
 - 主机：单 IP / 域名；端口：`80` / `1-1024` / `80,443,8000-8100`
