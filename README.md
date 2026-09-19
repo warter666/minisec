@@ -1,5 +1,7 @@
 # minisec — 教育向安全工具重写
 
+[![CI](https://github.com/warter666/minisec/actions/workflows/ci.yml/badge.svg)](https://github.com/warter666/minisec/actions/workflows/ci.yml)
+
 参照 [projectdiscovery/naabu](https://github.com/projectdiscovery/naabu) 与
 [sec-tools/litefuzz](https://github.com/sec-tools/litefuzz) 的核心思路，
 纯标准库实现，仅用于授权测试与学习。
